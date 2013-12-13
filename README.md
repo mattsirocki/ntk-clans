@@ -1,2 +1,2 @@
-ntk-clanstat
+ntk-clans
 ============
