@@ -1,3 +1,5 @@
+#!/usr/bin/php
+
 <?php
 
 /**
@@ -42,11 +44,24 @@ function get_data_from_file($clan)
 }
 
 
-function get_user_data($name)
+function get_users_from_file($clan)
 {
-    $data = file_get_contents("http://www.bodhisanctum.com/player-search?option=com_playersearch&view=playersearch&Itemid=489&adsearch=$name");
+	return unserialize(file_get_contents("$clan.users"));
+}
 
-    file_put_contents("$name.user.data", serialize($data));
+function get_users_from_html($clan, $names)
+{
+    $data = array();
+
+    echo "$clan: Retrieving Users:";
+
+    foreach ($names as $name)
+    {
+    	echo " $name";
+    	$data[$name] = file_get_contents("http://www.bodhisanctum.com/player-search?option=com_playersearch&view=playersearch&Itemid=489&adsearch=$name");
+    }
+
+    file_put_contents("$clan.users", serialize($data));
 
     return $data;
 }
@@ -68,7 +83,6 @@ $i = preg_quote(INACTIVE);
 $x = preg_quote(ABSENT);
 $u = preg_quote(UNREGISTERED);
 
-echo "($l.*?$r)";
 preg_match_all("($l(.*?)$r($a|$i|$x)$u)", $data, $matches);
 
 $names = array();
@@ -79,5 +93,45 @@ foreach ($matches[1] as $match)
     $names[] = $exploded_name[0];
 }
 
-var_dump($names);
-echo count($names);
+echo "Found " . count($names) . " Unregistered Names\n";
+
+if (array_search('--update', $argv) || !file_exists("$clan.users"))
+    $users = get_users_from_html($clan, $names);
+else
+    $users = get_users_from_file($clan);
+
+
+$td_l  = preg_quote('<td>');
+$td_r  = preg_quote('</td>');
+$nbsp  = preg_quote('&nbsp;');
+$date  = '[0-9]{4}-[0-9]{2}-[0-9]{2}';
+$td_date_or_space = "$td_l(?:$nbsp|$date)$td_r";
+
+
+$pattern = "($td_date_or_space$td_date_or_space$td_date_or_space$td_l($date)$td_r)";
+
+$dates = array();
+
+foreach ($users as $user => $page)
+{
+	preg_match_all($pattern, $page, $matches);
+
+
+	$latest = 0;
+
+	foreach ($matches[1] as $date)
+	{
+		$current = strtotime($date);
+
+		if ($current > $latest)
+			$latest = $current;
+	}
+
+	$dates[$user] = $latest;
+}
+
+
+foreach ($dates as $user => $time)
+{
+	echo "$user," . strftime("%Y-%m-%d", $time) . "\n";
+}
