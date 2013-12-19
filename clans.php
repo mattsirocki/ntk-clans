@@ -49,6 +49,37 @@ $clans = array
 );
 
 /**
+ * List of Field Names
+ *
+ * @var array
+ */
+$fields = array
+(
+    'T',
+    'R',
+    'U',
+    'RT',
+    'UT',
+    'A',
+    'AR',
+    'AU',
+    'ART',
+    'AUT',
+    'I',
+    'IR',
+    'IU',
+    'IRT',
+    'IUT',
+    'X',
+    'XR',
+    'XU',
+    'XRT',
+    'XUT',
+);
+
+
+
+/**
  * Array of Clan Statistics
  *
  * @var array
@@ -68,13 +99,14 @@ function get_data_from_html($clans)
 {
     $data = array();
 
-    echo 'Retrieving: ';
+    echo 'Scraping: ';
 
     foreach ($clans as $name)
     {
         echo "$name ";
         $data[$name] = file_get_contents('http://users.nexustk.com/webreport/' . $name . '.html');
     }
+    echo "\n";
 
     file_put_contents('clans.data', serialize($data));
 
@@ -123,7 +155,7 @@ function sanity($a, $b)
  */
 function percentage ($a, $b)
 {
-    return $a / $b * 100;
+    return round($a / $b * 100);
 }
 
 /**
@@ -144,9 +176,27 @@ function compare_x($field)
 //
 // Main Script
 //
+$is_script = isset($argv);
+if (!$is_script)
+{
+    $argv = array('web');
+
+    foreach ($_GET as $key => $value)
+    {
+        array_push($argv, '--' . $key);
+        array_push($argv, $value);
+    }
+}
+
+// true if scraping
+$fresh_data = array_search('--update', $argv) || !file_exists('clans.data');
+
+// HTML Header
+if (!$is_script)
+    echo "<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>NexusTK Clans</title></head><body><pre>\n";
 
 // Argument Processing
-if (array_search('--update', $argv) || !file_exists('clans.data'))
+if ($fresh_data)
     $data = get_data_from_html(array_keys($clans));
 else
     $data = get_data_from_file('clans.data');
@@ -155,10 +205,12 @@ if (array_search('--sort', $argv))
 else
     $sort = 'T';
 
+
+
 // Populate Data
 foreach ($clans as $_name => $name)
 {
-    $html = $data[$name];
+    $html = $data[$_name];
 
     preg_match('(Total registered : ([0-9]+) Total unregistered : ([0-9]+))', $html, $matches);
 
@@ -166,12 +218,12 @@ foreach ($clans as $_name => $name)
     $count['R']  = $matches[1];
     $count['U']  = $matches[2];
     $count['T']  = $count['R'] + $count['U'];
-    $count['A']  = substr_count($html, $active);
-    $count['AU'] = substr_count($html, $active   . $unregistered);
-    $count['I']  = substr_count($html, $inactive);
-    $count['IU'] = substr_count($html, $inactive . $unregistered);
-    $count['X']  = substr_count($html, $absent);
-    $count['XU'] = substr_count($html, $absent   . $unregistered);
+    $count['A']  = substr_count($html, ACTIVE);
+    $count['AU'] = substr_count($html, ACTIVE   . UNREGISTERED);
+    $count['I']  = substr_count($html, INACTIVE);
+    $count['IU'] = substr_count($html, INACTIVE . UNREGISTERED);
+    $count['X']  = substr_count($html, ABSENT);
+    $count['XU'] = substr_count($html, ABSENT   . UNREGISTERED);
 
     // Correct Active/Inactive/Absent Counts
     $count['AR'] = $count['A'] - $count['AU'];
@@ -179,25 +231,31 @@ foreach ($clans as $_name => $name)
     $count['XR'] = $count['X'] - $count['XU'];
 
     // Calculate Percentages
-    $count['RP']  = percentage($count['R'],  $count['T']);
-    $count['UP']  = percentage($count['U'],  $count['T']);
-    $count['ARP'] = percentage($count['AR'], $count['A']);
-    $count['AUP'] = percentage($count['AU'], $count['A']);
-    $count['IRP'] = percentage($count['IR'], $count['I']);
-    $count['IUP'] = percentage($count['IU'], $count['I']);
-    $count['XRP'] = percentage($count['XR'], $count['X']);
-    $count['XUP'] = percentage($count['XU'], $count['X']);
-    $count['P']   = percentage($count['AR'], $count['T']);
+    $count['RT']  = percentage($count['R'],  $count['T']);
+    $count['UT']  = percentage($count['U'],  $count['T']);
+    $count['AT']  = percentage($count['A'],  $count['T']);
+    $count['IT']  = percentage($count['I'],  $count['T']);
+    $count['XT']  = percentage($count['X'],  $count['T']);
+    $count['ART'] = percentage($count['AR'], $count['T']);
+    $count['IRT'] = percentage($count['IR'], $count['T']);
+    $count['XRT'] = percentage($count['XR'], $count['T']);
+    $count['AUT'] = percentage($count['AU'], $count['T']);
+    $count['IUT'] = percentage($count['IU'], $count['T']);
+    $count['XUT'] = percentage($count['XU'], $count['T']);
 
     // Perform Sanity Check
     sanity($count['R'], $count['AR'] + $count['IR'] + $count['XR']);
     sanity($count['U'], $count['AU'] + $count['IU'] + $count['XU']);
 
-    $stats[$name] = $count;
+    $stats[$_name] = $count;
 }
 
+// Save the Stats array... might do something with the data eventually.
+if ($fresh_data)
+    file_put_contents(sprintf('clan_stats_%s.data', strftime('%Y%m%d%H%M%S')), serialize($stats));
+
 // Check that --sort is a valid field.
-if (array_key_exists($sort, end($stats)))
+if (!array_key_exists($sort, end($stats)))
 {
     echo 'error: invalid filter: --sort ' . $sort;
     exit(1);
@@ -206,67 +264,51 @@ if (array_key_exists($sort, end($stats)))
 // Perform the sort of $stats in place.
 uasort($stats, compare_x($sort));
 
-// Key:
-//  T     - Total Users
-//  R     - Registered Users
-//  U     - Unregistered Users
-//  A     - Active Users (0 <= Played < 15)
-//  AR    - Active + Registered
-//  AU    - Active + Unregistered
-//  I     - Inactive (15 <= Played < 30)
-//  IR    - Inactive + Registered
-//  IU    - Inactive + Unregistered
-//  I     - Percentage of (Inactive + Registered) / Inactive
-//  X     - Absent (30 <= Played)
-//  XR   - Absent + Registered
-//  XU   - Absent + Unregistered
-//  XRP - Percentage of (Absent + Registered) / Absent
-//  AP - Percentage of (Active + Registered) / Total
-//
-//  RT    - Percentage of Registered              / Total
-//  UT    - Percentage of Unregistered            / Total
-//  AT    - Percentage of Active                  / Total
-//  IT    - Percentage of Inactive                / Total
-//  XT    - Percentage of Absent                  / Total
-//  ARA   - Percentage of Active   + Registered   / Active
-//  IRA   - Percentage of Inactive + Registered   / Inactive
-//  XRA   - Percentage of Absent   + Registered   / Absent
-//  AUA   - Percentage of Active   + Unregistered / Active
-//  IUA   - Percentage of Inactive + Unregistered / Inactive
-//  XUA   - Percentage of Absent   + Unregistered / Absent
-//  ART   - Percentage of Active   + Registered   / Total
-//  IRT   - Percentage of Inactive + Registered   / Total
-//  XRT   - Percentage of Absent   + Registered   / Total
-//  AUT   - Percentage of Active   + Unregistered / Total
-//  IUT   - Percentage of Inactive + Unregistered / Total
-//  XUT   - Percentage of Absent   + Unregistered / Total
-echo "+--------------++-----+-----+-----++-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+\n";
-echo "| Clan         ||   T |   R |   U ||   A |   I |   X |   U |  RP |  UP |  AR |  AU | ARP | AUP |   I |  IR |  IU | IRP | IUP |   X |  XR |  XU | XRP | XUP |   P |\n";
-echo "+--------------++-----+-----+-----++-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+-----+\n";
+function anchor_sort($field)
+{
+    return str_repeat(' ', 4 - strlen($field)) . "<a href=\"?sort=$field\">$field</a> |";
+}
+
+echo "+----+--------------+" . str_repeat('-----+', count($fields)) . "\n";
+echo "|  # | Clan         |";
+foreach ($fields as $field)
+    echo $is_script ? str_pad($field, 4) : anchor_sort($field);
+echo "\n";
+echo "+----+--------------+" . str_repeat('-----+', count($fields)) . "\n";
+$i = 0;
 foreach ($stats as $clan => $count)
-    //              Clan     T     R     U      RP      UP     A    AR    AU     ARP     AUP     I    IR    IU     IRP     IUP     X    XR    XU     XRP     XUP       P
-    echo sprintf("| %12s | %3d | %3d | %3d | %3d%% | %3d%% | %3d | %3d | %3d | %3d%% | %3d%% | %3d | %3d | %3d | %3d%% | %3d%% | %3d | %3d | %3d | %3d%% | %3d%% | %3d%% |\n",
-        $clan,
-        $count['T'],
-        $count['R'],
-        $count['U'],
-        $count['RP'],
-        $count['UP'],
-        $count['A'],
-        $count['AR'],
-        $count['AU'],
-        $count['ARP'],
-        $count['AUP'],
-        $count['I'],
-        $count['IR'],
-        $count['IU'],
-        $count['IRP'],
-        $count['IUP'],
-        $count['A'],
-        $count['XR'],
-        $count['AU'],
-        $count['XRP'],
-        $count['XUP'],
-        $count['P']
-        );
-echo "+--------------+-----+-----+-----+------+------+-----+-----+-----+-------+-------+-----+-------+---+-------+-------+-----+-----+-----+-------+-------+\n";
+{
+    printf("| %2d | %12s |", ++$i, $clans[$clan]);
+    foreach ($fields as $field)
+        echo sprintf(" %3d |", $count[$field]);
+    echo "\n";
+}
+echo "+----+--------------+" . str_repeat('-----+', count($fields)) . "\n";
+
+echo "+-------------------------------------------------------+\n";
+echo "| LEGEND                                                |\n";
+echo "+-------------------------------------------------------+\n";
+echo "| T        Number of Total Members                      |\n";
+echo "| R        Number of Registered Members                 |\n";
+echo "| U        Number of Unregistered Members               |\n";
+echo "| RT   Percentage of Registered Members out of Total    |\n";
+echo "| UT   Percentage of Unregistered Members out of Total  |\n";
+echo "| A        Number of Active Members                     |\n";
+echo "| AR       Number of Active+Registered Members          |\n";
+echo "| AU       Number of Active+Unregistered Members        |\n";
+echo "| ART  Percentage of Active+Registered out of Total     |\n";
+echo "| AUT  Percentage of Active+Unregistered out of Total   |\n";
+echo "| I        Number of Inactive Members                   |\n";
+echo "| IR       Number of Inactive+Registered                |\n";
+echo "| IU       Number of Inactive+Unregistered              |\n";
+echo "| IRT  Percentage of Inactive+Registered out of Total   |\n";
+echo "| IUT  Percentage of Inactive+Unregistered out of Total |\n";
+echo "| X        Number of Absent Members                     |\n";
+echo "| XR       Number of Absent+Registered                  |\n";
+echo "| XU       Number of Absent+Unregistered                |\n";
+echo "| XRT  Percentage of Absent+Registered out of Total     |\n";
+echo "| XUT  Percentage of Absent+Unregistered out of Total   |\n";
+echo "+-------------------------------------------------------+\n";
+
+if (!$is_script)
+    echo "</pre></body></html>";
