@@ -36,6 +36,7 @@ $clans = array
     'Elendhirin'   => 'Elendhirin',
     'Enigma'       => 'Enigma',
     'Heavens'      => 'Heavens',
+    'Horde'        => 'Horde',
     'KoguryoArmy'  => 'Koguryo Army',
     'Kurimja'      => 'Kurimja',
     'LostKingdom'  => 'Lost Kingdom',
@@ -157,6 +158,8 @@ function sanity($a, $b)
  */
 function percentage ($a, $b)
 {
+    if ($b == 0)
+        return '?';
     return round($a / $b * 100);
 }
 
@@ -205,7 +208,7 @@ else
 if (array_search('--sort', $argv))
     $sort = $argv[array_search('--sort', $argv) + 1];
 else
-    $sort = 'T';
+    $sort = 'Clan';
 
 
 
@@ -257,24 +260,32 @@ if ($fresh_data)
     file_put_contents(sprintf('clan_stats_%s.data', strftime('%Y%m%d%H%M%S')), serialize($stats));
 
 // Check that --sort is a valid field.
-if (!array_key_exists($sort, end($stats)))
+if ($sort !== 'Clan' && !array_key_exists($sort, end($stats)))
 {
     echo 'error: invalid filter: --sort ' . $sort;
     exit(1);
 }
 
 // Perform the sort of $stats in place.
-uasort($stats, compare_x($sort));
+if ($sort === 'Clan')
+    ksort($stats);
+else
+    uasort($stats, compare_x($sort));
 
-function anchor_sort($field)
+function text_field($field, $width = 4)
 {
-    return str_repeat(' ', 4 - strlen($field)) . "<a href=\"?sort=$field\">$field</a> |";
+    return str_repeat(' ', $width - strlen($field)) . $field . ' |';
+}
+
+function anchor_field($field, $width = 4)
+{
+    return str_repeat(' ', $width - strlen($field)) . "<a href=\"?sort=$field\">$field</a> |";
 }
 
 echo "+----+--------------+" . str_repeat('-----+', count($fields)) . "\n";
-echo "|  # | Clan         |";
+echo '|  # |'; echo $is_script ? text_field('Clan', 13) : anchor_field('Clan', 13);
 foreach ($fields as $field)
-    echo $is_script ? str_pad($field, 4) : anchor_sort($field);
+    echo $is_script ? text_field($field) : anchor_field($field);
 echo "\n";
 echo "+----+--------------+" . str_repeat('-----+', count($fields)) . "\n";
 $i = 0;
