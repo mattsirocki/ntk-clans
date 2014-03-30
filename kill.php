@@ -60,12 +60,29 @@ function get_users_from_html($clan, $names)
     	echo " $name";
     	$data[$name] = file_get_contents("http://www.bodhisanctum.com/player-search?option=com_playersearch&view=playersearch&Itemid=489&adsearch=$name");
     }
+    echo "\n";
 
     file_put_contents("$clan.users", serialize($data));
 
     return $data;
 }
 
+function prune_names($names, $titles)
+{
+    $kill_names = array();
+    $save_names = array();
+
+    foreach (array_map(null, $names, $titles) as $zip)
+    {
+        if (strpos($zip[1], "Ret.") === false)
+            $kill_names[] = $zip[0];
+        else
+            $save_names[] = $zip[0];
+
+    }
+
+    return array($kill_names, $save_names);
+}
 
 // Argument Processing
 $clan = $argv[1];
@@ -75,17 +92,22 @@ if (array_search('--update', $argv) || !file_exists("$clan.data"))
 else
     $data = get_data_from_file($clan);
 
+$sort_dates = array_search('--sort', $argv);
 
-$l = str_replace('\{name\}', '.*?', preg_quote('<a class="link" href="http://users.nexustk.com/?name={name}" target="_new">'));
+
+$l = str_replace('=name', '=[a-zA-Z]*?', preg_quote('<a class="link" href="http://users.nexustk.com/?name=name" target="_new">'));
 $r = preg_quote('</a>');
 $a = preg_quote(ACTIVE);
 $i = preg_quote(INACTIVE);
 $x = preg_quote(ABSENT);
 $u = preg_quote(UNREGISTERED);
 
-preg_match_all("($l(.*?)$r($a|$i|$x)$u)", $data, $matches);
+$p = "($l(.*?)\"(.*?)\"$r($i|$x)$u)";
+
+preg_match_all($p, $data, $matches);
 
 $names = array();
+$titles = array();
 
 foreach ($matches[1] as $match)
 {
@@ -93,20 +115,31 @@ foreach ($matches[1] as $match)
     $names[] = $exploded_name[0];
 }
 
+foreach ($matches[2] as $match)
+{
+    $titles[] = $match;
+}
+
 echo "Found " . count($names) . " Unregistered Names\n";
+echo "Pruning: List to Remove Retired Primogens/Generals\n";
+
+list($names, $save_names) = prune_names($names, $titles);
+
+echo "Pruning: " . count($save_names) . " Names Will Be Saved:\n";
+foreach ($save_names as $name)
+    echo " $name";
+echo "\n";
 
 if (array_search('--update', $argv) || !file_exists("$clan.users"))
     $users = get_users_from_html($clan, $names);
 else
     $users = get_users_from_file($clan);
 
-
 $td_l  = preg_quote('<td>');
 $td_r  = preg_quote('</td>');
 $nbsp  = preg_quote('&nbsp;');
 $date  = '[0-9]{4}-[0-9]{2}-[0-9]{2}';
 $td_date_or_space = "$td_l(?:$nbsp|$date)$td_r";
-
 
 $pattern = "($td_date_or_space$td_date_or_space$td_date_or_space$td_l($date)$td_r)";
 
@@ -130,8 +163,13 @@ foreach ($users as $user => $page)
 	$dates[$user] = $latest;
 }
 
+if ($sort_dates)
+{
+    asort($dates);
+}
 
 foreach ($dates as $user => $time)
 {
-	echo "$user," . strftime("%Y-%m-%d", $time) . "\n";
+	echo strftime("%Y-%m-%d", $time) . " | $user\n";
 }
+
