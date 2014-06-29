@@ -1,5 +1,4 @@
 #!/usr/bin/php
-
 <?php
 
 include 'killer.php';
@@ -11,7 +10,6 @@ $sort   = array_search('--sort', $argv);
 
 $dates = killer($clan, $update, $update, $sort);
 
+echo "      Date | Name\n";
 foreach ($dates as $user => $time)
-{
 	echo strftime("%Y-%m-%d", $time) . " | $user\n";
-}

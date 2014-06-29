@@ -1,8 +1,10 @@
 <?php
 include '../killer.php';
 
+$update_users = isset($_GET['update']);
+
 ob_start();
-$dates = killer('Covenant', true, false, true);
+$dates = killer('Covenant', true, $update_users, true);
 ob_end_clean();
 
 $names = array_keys($dates);
