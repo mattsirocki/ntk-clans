@@ -58,6 +58,9 @@ function get_clan_from_html($clan)
 
     $data = array($kill_names, $save_names);
 
+    if (!count($names))
+        return get_clan_from_file($clan);
+
     file_put_contents("$clan.data", serialize($data));
 
     return $data;

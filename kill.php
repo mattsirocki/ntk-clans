@@ -5,10 +5,11 @@ include 'killer.php';
 
 // Argument Processing
 $clan   = $argv[1];
-$update = array_search('--update', $argv);
+$update_clan = array_search('--update-clan', $argv);
+$update_users = array_search('--update-users', $argv);
 $sort   = array_search('--sort', $argv);
 
-$dates = killer($clan, $update, $update, $sort);
+$dates = killer($clan, $update_clan, $update_users, $sort);
 
 echo "      Date | Name\n";
 foreach ($dates as $user => $time)
