@@ -46,10 +46,15 @@ function get_clan_from_html($clan)
     foreach ($matches[2] as $match)
         $titles[] = $match;
 
+    echo "Loading Whitelist File\n";
+    $whitelist = get_whitelist_from_file("$clan.whitelist");
+    if (count($whitelist))
+        echo "Found " . count($whitelist) . " Whitelisted Names\n";
+
     echo "Found " . count($names) . " Unregistered Names\n";
     echo "Pruning: Checking for Retired Primogens/Generals\n";
 
-    list($kill_names, $save_names) = prune_names($names, $titles);
+    list($kill_names, $save_names) = prune_names($names, $titles, $whitelist);
 
     echo "Pruning: " . count($save_names) . " Names Will Be Saved:\n";
     foreach ($save_names as $name)
@@ -77,6 +82,16 @@ function get_clan_from_html($clan)
 function get_clan_from_file($clan)
 {
     return unserialize(file_get_contents("$clan.data"));
+}
+
+/**
+ * Load a Whitelist from a Serialized File
+ */
+function get_whitelist_from_file($file)
+{
+    if (file_exists($file))
+        return unserialize(file_get_contents($file));
+    return array();
 }
 
 /**
@@ -213,17 +228,19 @@ function get_users_from_html($clan, $names)
 /**
  * Prune Names
  */
-function prune_names($names, $titles)
+function prune_names($names, $titles, $whitelist)
 {
     $kill_names = array();
     $save_names = array();
 
     foreach (array_map(null, $names, $titles) as $zip)
     {
-        if (strpos($zip[1], "Ret.") === false)
-            $kill_names[] = $zip[0];
-        else
+        if (strpos($zip[1], "Ret.") !== false)
             $save_names[] = $zip[0];
+        else if (in_array($zip[0], $whitelist))
+            $save_names[] = $zip[0];
+        else
+            $kill_names[] = $zip[0];
 
     }
 
