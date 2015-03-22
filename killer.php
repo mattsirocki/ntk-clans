@@ -80,6 +80,67 @@ function get_clan_from_file($clan)
 }
 
 /**
+ * Kick the Specified User from the Clan
+ *
+ * @param string $clan
+ *     Accepts the name of the clan.
+ * @param string $user
+ *     Accepts the name of the user.
+ *
+ * @return
+ *     Returns the updated list of kicked users.
+ */
+function kick_user($clan, $user)
+{
+    $kicked_users = get_kicked_users($clan);
+
+    $kicked_users[] = $user;
+
+    file_put_contents("$clan.kicked", serialize($kicked_users));
+
+    return $kicked_users;
+}
+
+/**
+ * Unkick the Specified User from the Clan
+ *
+ * @param string $clan
+ *     Accepts the name of the clan.
+ * @param string $user
+ *     Accepts the name of the user.
+ *
+ * @return
+ *     Returns the updated list of kicked users.
+ */
+function unkick_user($clan, $user)
+{
+    $kicked_users = get_kicked_users($clan);
+
+    if (($key = array_search($user, $kicked_users)) !== false)
+        unset($kicked_users[$key]);
+
+    file_put_contents("$clan.kicked", serialize($kicked_users));
+
+    return $kicked_users;
+}
+
+/**
+ * Get Kicked Users
+ *
+ * Returns a list of kicked users.
+ *
+ * @param string $clan
+ *     Accepts the name of the clan.
+ */
+function get_kicked_users($clan)
+{
+    if (!file_exists("$clan.kicked"))
+        return array();
+
+    return unserialize(file_get_contents("$clan.kicked"));
+}
+
+/**
  * Get Users from File
  */
 function get_users_from_file($clan, $names)
@@ -169,19 +230,30 @@ function prune_names($names, $titles)
     return array($kill_names, $save_names);
 }
 
+function check_if_update($update, $file)
+{
+    if (!file_exists($file))
+        return true;
+
+    if (is_integer($update))
+        return time() - filemtime($file) > $update;
+
+    return (bool) $update;
+}
+
 /**
  * Killer
  */
 function killer($clan, $update_clan = false, $update_users = false, $sort = false)
 {
-    if ($update_clan || !file_exists("$clan.data"))
+    if (check_if_update($update_clan, "$clan.data"))
         $clan_data = get_clan_from_html($clan);
     else
         $clan_data = get_clan_from_file($clan);
 
     list($kill_names, $save_names) = $clan_data;
 
-    if ($update_users || !file_exists("$clan.users"))
+    if (check_if_update($update_users, "$clan.users"))
         $dates = get_users_from_html($clan, $kill_names);
     else
         $dates = get_users_from_file($clan, $kill_names);

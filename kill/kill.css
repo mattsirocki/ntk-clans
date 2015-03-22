@@ -1,0 +1,12 @@
+html, body { height: 100%; }
+html { display: table; margin: auto; }
+body { display: table-cell; vertical-align: middle; font-family: "Open Sans"; font-weight: 300; text-align: center;}
+a { color: inherit; text-decoration: inherit;}
+a:hover {background-color: #EEE;}
+
+.kicked { text-decoration: line-through; }
+.n0 { font-size: 50px; }
+.n1 { font-size: 30px; }
+.n2 { font-size: 20px; }
+.n3 { font-size: 15px; }
+.n4 { font-size: 10px; }

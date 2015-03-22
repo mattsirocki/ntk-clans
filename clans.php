@@ -53,6 +53,35 @@ $clans = array
 );
 
 /**
+ * Kingdom
+ */
+$kingdoms = array
+(
+    'Alizarin'     => 'Nagnang',
+    'Bear'         => 'Koguryo',
+    'BuyaArmy'     => 'Buya',
+    'Covenant'     => 'Nagnang',
+    'Destiny'      => 'Koguryo',
+    'Dharma'       => 'Buya',
+    'Elendhirin'   => 'Buya',
+    'Enigma'       => 'Koguryo',
+    'Heavens'      => 'Buya',
+    'Horde'        => 'Wilderness',
+    'KoguryoArmy'  => 'Koguryo',
+    'Kurimja'      => 'Nagnang',
+    'LostKingdom'  => 'Buya',
+    'Oceana'       => 'Koguryo',
+    'Pegasus'      => 'Nagnang',
+    'Phoenix'      => 'Buya',
+    'SanSin'       => 'Buya',
+    'Silla'        => 'Nagnang',
+    'SunMoon'      => 'Koguryo',
+    'The_Forsaken' => 'Nagnang',
+    'Tiger'        => 'Koguryo',
+    'Viper'        => 'Nagnang',
+);
+
+/**
  * List of Field Names
  *
  * @var array
@@ -165,7 +194,21 @@ function percentage ($a, $b)
 }
 
 /**
- * Returns a Comparison Function
+ * Returns a Key Comparison Function
+ *
+ * @param array $field
+ *     Accepts the lookup.
+ * @return function
+ *     Returns a closure which can be used to compare two arrays on a specific
+ *     lookup table of keys.
+ */
+function compare_k($field)
+{
+    return function ($a, $b) use ($field) { return $field[$a] > $field[$b]; };
+}
+
+/**
+ * Returns a Value Comparison Function
  *
  * @param  string $field
  *     Accepts the name of the field to compare.
@@ -177,7 +220,6 @@ function compare_x($field)
 {
     return function ($a, $b) use ($field) { return $a[$field] < $b[$field]; };
 }
-
 
 //
 // Main Script
@@ -261,7 +303,7 @@ if ($fresh_data)
     file_put_contents(sprintf('clan_stats_%s.data', strftime('%Y%m%d%H%M%S')), serialize($stats));
 
 // Check that --sort is a valid field.
-if ($sort !== 'Clan' && !array_key_exists($sort, end($stats)))
+if ($sort !== 'Clan' && $sort !== 'Kingdom' && !array_key_exists($sort, end($stats)))
 {
     echo 'error: invalid filter: --sort ' . $sort;
     exit(1);
@@ -270,6 +312,8 @@ if ($sort !== 'Clan' && !array_key_exists($sort, end($stats)))
 // Perform the sort of $stats in place.
 if ($sort === 'Clan')
     ksort($stats);
+else if ($sort === 'Kingdom')
+    uksort($stats, compare_k($kingdoms));
 else
     uasort($stats, compare_x($sort));
 
@@ -283,21 +327,29 @@ function anchor_field($field, $width = 4)
     return str_repeat(' ', $width - strlen($field)) . "<a href=\"?sort=$field\">$field</a> |";
 }
 
-echo "+----+--------------+" . str_repeat('-----+', count($fields)) . "\n";
-echo '|  # |'; echo $is_script ? text_field('Clan', 13) : anchor_field('Clan', 13);
+echo "+----+--------------+------------+" . str_repeat('-----+', count($fields)) . "\n";
+echo '|  # |';
+if ($is_script)
+{
+    echo text_field('Clan', 13);
+    echo text_field('Kingdom', 11);
+} else {
+    echo anchor_field('Clan', 13);
+    echo anchor_field('Kingdom', 11);
+}
 foreach ($fields as $field)
     echo $is_script ? text_field($field) : anchor_field($field);
 echo "\n";
-echo "+----+--------------+" . str_repeat('-----+', count($fields)) . "\n";
+echo "+----+--------------+------------+" . str_repeat('-----+', count($fields)) . "\n";
 $i = 0;
 foreach ($stats as $clan => $count)
 {
-    printf("| %2d | %12s |", ++$i, $clans[$clan]);
+    printf("| %2d | %12s | %10s |", ++$i, $clans[$clan], $kingdoms[$clan]);
     foreach ($fields as $field)
         echo sprintf(" %3d |", $count[$field]);
     echo "\n";
 }
-echo "+----+--------------+" . str_repeat('-----+', count($fields)) . "\n";
+echo "+----+--------------+------------+" . str_repeat('-----+', count($fields)) . "\n";
 
 echo "+-------------------------------------------------------+\n";
 echo "| LEGEND                                                |\n";
